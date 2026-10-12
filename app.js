@@ -8,7 +8,7 @@ const beforeImg = $('#beforeImg'), outCanvas = $('#out'), beforeWrap = $('#befor
 
 let cutout = null; // canvas with transparent cutout at original size
 let bg = 'transparent';
-const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
+const worker = new Worker(new URL('./worker.js?v=4', import.meta.url), { type: 'module' });
 let pending = null, usingGPU = false;
 worker.onmessage = ({ data }) => {
   if (data.type === 'progress') setProg(Math.round((data.loaded / data.total) * 90), `Loading AI model… ${Math.round(data.loaded / 1e6)} / ${Math.round(data.total / 1e6)} MB (first time only)`);

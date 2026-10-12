@@ -21,7 +21,7 @@ async function load() {
   if (model) return;
   if (!loading) loading = (async () => {
     let gpu = false;
-    try { gpu = !!(navigator.gpu && await navigator.gpu.requestAdapter()); } catch (_) {}
+    try { const a = navigator.gpu && await navigator.gpu.requestAdapter(); gpu = !!a && !a.isFallbackAdapter && !(a.info && a.info.isFallbackAdapter) && !/swiftshader|llvmpipe/i.test(((a.info||{}).description||'')+((a.info||{}).vendor||'')); } catch (_) {}
     if (gpu) { try { await loadCfg(HD); } catch (e) { console.warn(e); gpu = false; } }
     if (!gpu) await loadCfg(LITE);
     postMessage({ type: 'ready', gpu });
