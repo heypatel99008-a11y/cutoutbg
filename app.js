@@ -11,9 +11,9 @@ let bg = 'transparent';
 const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
 let pending = null, usingGPU = false;
 worker.onmessage = ({ data }) => {
-  if (data.type === 'progress') setProg(Math.round((data.loaded / data.total) * 90), `Loading AI model… ${Math.round(data.loaded / 1e6)} / ${Math.round(data.total / 1e6)} MB (first time only, then cached)`);
+  if (data.type === 'progress') setProg(Math.round((data.loaded / data.total) * 90), `Loading AI model… ${Math.round(data.loaded / 1e6)} / ${Math.round(data.total / 1e6)} MB (first time only)`);
   else if (data.type === 'ready') usingGPU = data.gpu;
-  else if (data.type === 'working') setProg(93, usingGPU ? 'Removing background…' : 'Removing background… (10–40 s on phones)');
+  else if (data.type === 'working') setProg(93, usingGPU ? 'Removing background…' : 'Removing background…');
   else if (data.type === 'done' && pending) { pending.resolve(data); pending = null; }
   else if (data.type === 'error' && pending) { pending.reject(new Error(data.message)); pending = null; }
 };
