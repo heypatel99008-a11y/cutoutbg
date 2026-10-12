@@ -1,8 +1,4 @@
 // CutoutBG — on-device background removal (BiRefNet_lite, MIT licence) via Transformers.js
-import { AutoModel, AutoProcessor, RawImage, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.5';
-
-env.allowLocalModels = false;
-const MODEL_ID = 'onnx-community/BiRefNet_lite-ONNX';
 const FREE_MAX = 1500; // free tier long-side cap
 
 const $ = (s) => document.querySelector(s);
@@ -10,66 +6,43 @@ const drop = $('#drop'), fileIn = $('#file'), status = $('#status'), barI = $('#
 const upload = $('#upload'), result = $('#result');
 const beforeImg = $('#beforeImg'), outCanvas = $('#out'), beforeWrap = $('#beforeWrap'), handle = $('#handle'), cmp = $('#cmp');
 
-let model = null, processor = null, loading = null;
 let cutout = null; // canvas with transparent cutout at original size
 let bg = 'transparent';
-
-async function loadModel() {
-  if (model) return;
-  if (loading) return loading;
-  const hasGPU = !!navigator.gpu;
-  const files = {};
-  loading = (async () => {
-    const progress_callback = (p) => {
-      if (p.status === 'progress' && p.total) {
-        files[p.file] = [p.loaded, p.total];
-        let l = 0, t = 0; Object.values(files).forEach(([a, b]) => { l += a; t += b; });
-        setProg(Math.round((l / t) * 90), `Loading AI model… ${Math.round(l / 1e6)} / ${Math.round(t / 1e6)} MB (first time only, then cached)`);
-      }
-    };
-    try {
-      model = await AutoModel.from_pretrained(MODEL_ID, { dtype: 'fp16', device: hasGPU ? 'webgpu' : 'wasm', progress_callback });
-    } catch (e) {
-      console.warn('GPU/fp16 failed, falling back to wasm fp32', e);
-      model = await AutoModel.from_pretrained(MODEL_ID, { dtype: 'fp32', device: 'wasm', progress_callback });
-    }
-    processor = await AutoProcessor.from_pretrained(MODEL_ID);
-  })();
-  return loading;
-}
+const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
+let pending = null, usingGPU = false;
+worker.onmessage = ({ data }) => {
+  if (data.type === 'progress') setProg(Math.round((data.loaded / data.total) * 90), `Loading AI model… ${Math.round(data.loaded / 1e6)} / ${Math.round(data.total / 1e6)} MB (first time only, then cached)`);
+  else if (data.type === 'ready') usingGPU = data.gpu;
+  else if (data.type === 'working') setProg(93, usingGPU ? 'Removing background…' : 'Removing background… (10–40 s on phones)');
+  else if (data.type === 'done' && pending) { pending.resolve(data); pending = null; }
+  else if (data.type === 'error' && pending) { pending.reject(new Error(data.message)); pending = null; }
+};
+function segment(blob) { return new Promise((resolve, reject) => { pending = { resolve, reject }; worker.postMessage({ type: 'run', blob }); }); }
 
 function setProg(pct, txt) { status.style.display = 'block'; barI.style.width = pct + '%'; stTxt.textContent = txt; }
 
 async function handleFile(file) {
   if (!file || !file.type.startsWith('image/')) { alert('Please choose a JPG, PNG or WEBP image.'); return; }
-  const url = URL.createObjectURL(file);
-  await run(url);
+  await run(file);
 }
 
-async function run(url) {
+async function run(src) {
   try {
     setProg(3, 'Starting…');
-    await loadModel();
-    setProg(92, navigator.gpu ? 'Removing background…' : 'Removing background… (10–30 s on phones)');
-    const image = await RawImage.fromURL(url);
-    const { pixel_values } = await processor(image);
-    const out = await model({ input_image: pixel_values });
-    const t = Object.values(out)[0];
-    const mask = await RawImage.fromTensor(t[0].sigmoid().mul(255).to('uint8')).resize(image.width, image.height);
-
-    const c = document.createElement('canvas'); c.width = image.width; c.height = image.height;
+    const blob = typeof src === 'string' ? await (await fetch(src)).blob() : src;
+    const url = URL.createObjectURL(blob);
+    const img = new Image(); img.src = url; await img.decode();
+    const { mask, width, height } = await segment(blob);
+    const c = document.createElement('canvas'); c.width = width; c.height = height;
     const ctx = c.getContext('2d');
-    ctx.drawImage(image.toCanvas(), 0, 0);
-    const px = ctx.getImageData(0, 0, c.width, c.height);
-    for (let i = 0; i < mask.data.length; i++) px.data[i * 4 + 3] = mask.data[i];
+    ctx.drawImage(img, 0, 0, width, height);
+    const px = ctx.getImageData(0, 0, width, height);
+    for (let i = 0; i < mask.length; i++) px.data[i * 4 + 3] = mask[i];
     ctx.putImageData(px, 0, 0);
     cutout = c;
-
     beforeImg.src = url;
-    render();
-    setProg(100, 'Done');
     upload.style.display = 'none'; result.style.display = 'block'; status.style.display = 'none';
-    setSplit(50);
+    render(); setSplit(50);
     track('cutout_done');
   } catch (e) {
     console.error(e);
