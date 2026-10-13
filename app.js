@@ -8,7 +8,7 @@ const beforeImg = $('#beforeImg'), outCanvas = $('#out'), beforeWrap = $('#befor
 
 let cutout = null; // canvas with transparent cutout at original size
 let bg = 'transparent';
-const worker = new Worker(new URL('./worker.js?v=4', import.meta.url), { type: 'module' });
+const worker = new Worker(new URL('./worker.js?v=5', import.meta.url), { type: 'module' });
 let pending = null, usingGPU = false;
 worker.onmessage = ({ data }) => {
   if (data.type === 'progress') setProg(Math.round((data.loaded / data.total) * 90), `Loading AI model… ${Math.round(data.loaded / 1e6)} / ${Math.round(data.total / 1e6)} MB (first time only)`);
@@ -42,7 +42,7 @@ async function run(src) {
     cutout = c;
     beforeImg.src = url;
     upload.style.display = 'none'; result.style.display = 'block'; status.style.display = 'none';
-    render(); setSplit(50);
+    render(); setSplit(0); hint.style.display = "block";
     track('cutout_done');
   } catch (e) {
     console.error(e);
@@ -80,8 +80,8 @@ function onMove(e) {
   const x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
   setSplit((x / r.width) * 100);
 }
-let dragging = false;
-cmp.addEventListener('pointerdown', (e) => { dragging = true; onMove(e); });
+let dragging = false; const hint = document.getElementById('hint');
+cmp.addEventListener('pointerdown', (e) => { dragging = true; hint.style.display = 'none'; onMove(e); });
 window.addEventListener('pointermove', (e) => dragging && onMove(e));
 window.addEventListener('pointerup', () => (dragging = false));
 window.addEventListener('resize', () => cutout && render());

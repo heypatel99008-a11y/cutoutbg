@@ -96,3 +96,4 @@ footer .logo{color:#fff}
 .modal .card{max-width:420px;width:100%;text-align:center}
 .modal input{width:100%;padding:13px 14px;border:1px solid var(--line);border-radius:12px;font-size:15px;margin:14px 0 10px;font-family:inherit}
 .prose{max-width:760px;margin:0 auto;padding:56px 20px}.prose h1{font-size:40px}.prose h2{font-size:26px;margin-top:36px}.prose p,.prose li{color:#33374a;font-size:17px}
+.hint{display:none;position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(20,22,31,.75);color:#fff;font-size:12px;padding:5px 12px;border-radius:999px;pointer-events:none}
